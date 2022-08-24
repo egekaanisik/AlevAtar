@@ -1,6 +1,7 @@
 package dev.mrpanda.AlevAtar;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -8,401 +9,383 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 import javax.annotation.Nonnull;
 import javax.security.auth.login.LoginException;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.ChannelType;
-import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.MessageChannel;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.PrivateChannel;
 import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.events.ReadyEvent;
+import net.dv8tion.jda.api.events.guild.GuildJoinEvent;
+import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.events.message.priv.PrivateMessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.requests.GatewayIntent;
-import net.dv8tion.jda.api.utils.MemberCachePolicy;
-import okhttp3.OkHttpClient;
+import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.Commands;
+import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder;
+import net.dv8tion.jda.api.sharding.ShardManager;
 
 public class Bot extends ListenerAdapter {
-	
-	public static String DISCORD_TOKEN = ""; // Discord token
-	
-	public static File log = new File(Paths.get("").toAbsolutePath().toString() + "\\log.txt");
-	public static File blist = new File(Paths.get("").toAbsolutePath().toString() + "\\blacklist.txt");
-	public static FileWriter logwriter, blistwriter;
-	public static DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyy HH:mm:ss");
-	public static List<String> blacklist;
-	public static Scanner blistscan;
-	public static void main(String[] args) throws LoginException, InterruptedException, IOException {
+
+	public static String DISCORD_TOKEN = "<insert_discord_bot_token>"; // Discord bot token
+	public static String OWNER_ID = "<insert_your_discord_id>"; // ID of the bot owner
+
+	public static File log = new File(Paths.get("").toAbsolutePath().toString() + "\\log.txt"); // log file
+	public static File blist = new File(Paths.get("").toAbsolutePath().toString() + "\\blacklist.txt"); // blacklist file
+	public static FileWriter logwriter, blistwriter; // file writers
+	public static DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyy HH:mm:ss"); // log date time format
+	public static List<String> blacklist = new ArrayList<String>(); // blacklist itself
+	public static Scanner blistscan; // blacklist scanner
+
+	public static void main(String[] args) throws LoginException, IllegalArgumentException {
+		// create shard manager
 		@SuppressWarnings("unused")
-		JDA jda = JDABuilder.createDefault(DISCORD_TOKEN)
-		.enableIntents(GatewayIntent.GUILD_MEMBERS).addEventListeners(new Bot()).setMemberCachePolicy(MemberCachePolicy.ALL)
-		.setActivity(Activity.playing("-alev | -kalp")).setAutoReconnect(true).build().awaitReady();
+		ShardManager jda = DefaultShardManagerBuilder.createDefault(DISCORD_TOKEN)
+		.addEventListeners(new Bot())
+		.setActivity(Activity.playing("/alev | /kalp"))
+		.setAutoReconnect(true).build();
+	}
+
+	// when the bot is ready and set, notify and get blacklist
+	@Override
+	public void onReady(@Nonnull ReadyEvent event) {
+		log("System", "Bot started.");
 		
-		if(!log.exists())
-			log.createNewFile();
+		// try to scan the blacklist file
+		try {
+			blistscan = new Scanner(blist); // create scanner
+			
+			// add blacklisted IDs to blacklist
+			while(blistscan.hasNextLine())
+				blacklist.add(blistscan.nextLine());
+		// if the file does not exist, try to create
+		} catch (FileNotFoundException e) {
+			if (!blist.exists()) { // if file does not exist
+				try {
+					blist.createNewFile(); // create
+					log("System", "Blacklist file not found. A new file is created.");
+				} catch (IOException e1) { // if cannot create, notify
+					log("System", "Could not create blacklist file.");
+				}
+			}
+		}
+	}
+
+	// when a guild is ready, update its commands
+	@Override
+	public void onGuildReady(@Nonnull GuildReadyEvent event) {
+		ArrayList<CommandData> commands = new ArrayList<CommandData>();
 		
-		if(!blist.exists())
-			blist.createNewFile();
+		// alev command
+		commands.add(Commands.slash("alev", "AvÄ±nÄ± aleve boÄŸar.")
+				.addOption(OptionType.INTEGER, "adet", "GÃ¶ndermek istediÄŸin alev adedi. (maks. 792)", true)
+				.addOption(OptionType.USER, "hedef", "AvÄ±n.", true)); 
 		
-		String started = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "]" + " Bot started.\n";
-		System.out.print(started);
-		logwriter = new FileWriter(log, true);
-		logwriter.append(started);
-		logwriter.close();
+		// kalp command
+		commands.add(Commands.slash("kalp", "AvÄ±nÄ± sevgiye boÄŸar.")
+				.addOption(OptionType.INTEGER, "adet", "GÃ¶ndermek istediÄŸin kalp adedi. (maks. 792)", true)
+				.addOption(OptionType.USER, "hedef", "AvÄ±n.", true));
 		
-		blistscan = new Scanner(blist);
-		blacklist = new ArrayList<String>();
+		// kapat command
+		commands.add(Commands.slash("kapat", "[SINIRLI] Botu kapatÄ±r."));
 		
-		while(blistscan.hasNextLine())
-			blacklist.add(blistscan.nextLine());
+		// karaliste command
+		commands.add(Commands.slash("karaliste", "[SINIRLI] KÃ¶tÃ¼ Ã§ocuklarÄ± kara listeye alÄ±r veya uslu olanlarÄ± kara listeden Ã§Ä±kartÄ±r.")
+				.addOption(OptionType.USER, "hedef", "Kara listede deÄŸilse eklenecek kÃ¶tÃ¼ Ã§ocuk veya kara listedeyse silinecek uslu Ã§ocuk.", true));
 		
-		updateBlacklist();
+		event.getGuild().updateCommands().addCommands(commands).queue(); // update commands
+	}
+
+	// when the bot joins a new guild, update its commands
+	@Override
+	public void onGuildJoin(@Nonnull GuildJoinEvent event) {
+		ArrayList<CommandData> commands = new ArrayList<CommandData>();
+		
+		// alev command
+		commands.add(Commands.slash("alev", "AvÄ±nÄ± aleve boÄŸar.")
+				.addOption(OptionType.INTEGER, "adet", "GÃ¶ndermek istediÄŸin alev adedi. (maks. 792)", true)
+				.addOption(OptionType.USER, "hedef", "AvÄ±n.", true));
+		
+		// kalp command
+		commands.add(Commands.slash("kalp", "AvÄ±nÄ± sevgiye boÄŸar.")
+				.addOption(OptionType.INTEGER, "adet", "GÃ¶ndermek istediÄŸin kalp adedi. (maks. 792)", true)
+				.addOption(OptionType.USER, "hedef", "AvÄ±n.", true));
+		
+		// kapat command
+		commands.add(Commands.slash("kapat", "[SINIRLI] Botu kapatÄ±r."));
+		
+		// karaliste command
+		commands.add(Commands.slash("karaliste", "[SINIRLI] KÃ¶tÃ¼ Ã§ocuklarÄ± kara listeye alÄ±r veya uslu olanlarÄ± kara listeden Ã§Ä±kartÄ±r.")
+				.addOption(OptionType.USER, "hedef", "Kara listede deÄŸilse eklenecek kÃ¶tÃ¼ Ã§ocuk veya kara listedeyse silinecek uslu Ã§ocuk.", true));
+		
+		event.getGuild().updateCommands().addCommands(commands).queue(); // update commands
 	}
 	
-	public static void updateBlacklist() throws IOException {
-		if(!blist.exists())
-			blist.createNewFile();
-		
-		String ids = "";
-		
-		for(String id : blacklist) {
-			ids += id + "\n";
+	/**
+	 * Adds user to blacklist if they do not added yet or removes the user if they are added already.
+	 * @param user : user to be added or removed
+	 * @return result
+	 */
+	public static boolean blacklistAddRemove(User user) {
+		// if the blacklist file does not exist, try to create
+		if (!blist.exists()) {
+			try {
+				blist.createNewFile();
+				log("System", "Blacklist file not found. A new file is created.");
+			} catch (IOException e) {
+				log("System", "Could not create blacklist file.");
+				return false;
+			}
 		}
 		
-		blist.setWritable(true);
-		blistwriter = new FileWriter(blist);
-		blistwriter.write(ids);
-		blistwriter.close();
-		blist.setWritable(false);
-	}
-	
-	public void onPrivateMessageReceived(@Nonnull PrivateMessageReceivedEvent event) {
-		MessageChannel ch = event.getChannel();
+		// if the user is already added, remove from blacklist
+		if (blacklist.contains(user.getId())) {
+			blacklist.remove(user.getId());
+		// if the user is not in the list, add
+		} else {
+			blacklist.add(user.getId());
+		}
 		
-		if (event.getAuthor().isBot()) return;
-		else { ch.sendMessage("Savcýlýða verildiniz.").queue(); return;}
+		String ids = String.join("\n", blacklist); // blacklisted IDs
+
+		blist.setWritable(true); // set blacklist file as writable
+		// try to write to the file
+		try {
+			blistwriter = new FileWriter(blist);
+			blistwriter.write(ids);
+			blistwriter.close();
+		// if cannot write, revert the changes
+		} catch (IOException e) {
+			log("System", "An error occured while updating the blacklist file.");
+			
+			if (blacklist.contains(user.getId())) {
+				blacklist.remove(user.getId());
+			} else {
+				blacklist.add(user.getId());
+			}
+			
+			return false;
+		}
+		blist.setWritable(false); // set the file as non-writable again
+		
+		return true;
 	}
 	
+	/**
+	 * Prints and saves a log message.
+	 * @param source : source of the message
+	 * @param message : message itself
+	 */
+	public static void log(String source, String message) {
+		
+		// parse the message and print
+		String logMsg = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + source + "] " + message + "\n";
+		System.out.print(logMsg);
+		
+		// if the log file does not exist, try to create
+		if (!log.exists()) {
+			try {
+				log.createNewFile();
+				System.out.print("[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][System] Log file not found. A new file is created. (This message will not be recorded.)\n");
+			} catch (IOException e) {
+				System.out.print("[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][System] Could not create log file and save the previous event. (This message will not be recorded.)\n");
+				return;
+			}
+		}
+
+		log.setWritable(true); // set log file as writable
+		// try to write the file
+		try {
+			logwriter = new FileWriter(log, true);
+			logwriter.append(logMsg);
+			logwriter.close();
+		// if cannot write, notify
+		} catch (IOException e) {
+			System.out.println("[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][System] An error occured while saving the previous event to the log file. (This message will not be recorded.)\n");
+		}
+		log.setWritable(false); // set the file as non-writable again
+	}
+	
+	// when a slash command is used
+	@Override
+	public void onSlashCommandInteraction(@Nonnull SlashCommandInteractionEvent event) {
+		// get the command name, user, and the used guild
+		String name = event.getName();
+		User user = event.getUser();
+		Guild guild = event.getGuild();
+		
+		// if the command is alev
+		if (name.equals("alev")) {
+			int count = event.getOption("adet").getAsInt(); // get the quantity
+			
+			// check if the count is valid
+			if (count > 792) {
+				event.reply("O kadar Ã§ok alev gÃ¶nderemiyorum. Maksimum limit 792.").setEphemeral(true).queue();
+				return;
+			} else if (count <= 0) {
+				event.reply("LÃ¼tfen daha yÃ¼ksek bir sayÄ± gir.").setEphemeral(true).queue();
+				return;
+			}
+
+			event.deferReply().complete(); // notify Discord
+			
+			// if the user is blacklisted, notify and abort
+			if(blacklist.contains(event.getUser().getId())) {
+				log(guild.getName(), "Blocked " + user.getName() + " from sending fires (sender blacklisted).");
+				event.getHook().sendMessage(":poop: Her ne yaptÄ±ysan kara listedesin. Otur kÃ¶ÅŸende aÄŸla ÅŸimdi.").queue();
+				return;
+			}
+
+			User target = event.getOption("hedef").getAsUser(); // get the target
+			
+			// if the target is blacklisted, notify and abort
+			if(blacklist.contains(target.getId())) {
+				log(guild.getName(), "Blocked " + user.getName() + " from sending fires to " + target.getName() + " (target blacklisted).");
+				event.getHook().sendMessage(":poop: Alevlemek istediÄŸiniz **"  + target.getName() + "** kara listede. BÄ±rakÄ±n kÃ¶ÅŸesinde aÄŸlasÄ±n.").queue();
+				return;
+			}
+
+			int messageCount = count % 198 == 0 ? count / 198 : (count / 198) + 1; // calculate the message count
+			
+			// open the target's private channel and send the header message
+			PrivateChannel targetPM = target.openPrivateChannel().complete();
+			targetPM.sendMessage("**" + user.getName() + "** size " + count + " adet :fire: yolladÄ±!").queue();
+			
+			int ogCount = count; // backup the quantity
+			
+			// send messages
+			for(int i = 0, rem; i < messageCount; i++) {
+				String fire = "";
+
+				rem = count < 198 ? count : 198; // remaining emotes
+				
+				// add emotes to the message
+				for(int j = 0; j < rem; j++) {
+					fire += ":fire:";
+				}
+				
+				// send message and go to the next message
+				targetPM.sendMessage(fire).queue();
+				count -= 198;
+			}
+			
+			// acknowledge the user
+			log(guild.getName(), user.getName() + " -> " + target.getName() + " (" + ogCount + " fires)");
+			event.getHook().sendMessage(":fire: **" + target.getName() + "** kiÅŸisi baÅŸarÄ±yla " + ogCount + " defa alevlendi. Ä°yi avlamalar.").queue();
+			
+		// if the command is kalp
+		} else if (name.equals("kalp")) {
+			int count = event.getOption("adet").getAsInt(); // get the quantity
+			
+			// check if the count is valid
+			if (count > 792) {
+				event.reply("O kadar Ã§ok kalp gÃ¶nderemiyorum. Maksimum limit 792.").setEphemeral(true).queue();
+				return;
+			} else if (count <= 0) {
+				event.reply("LÃ¼tfen daha yÃ¼ksek bir sayÄ± gir.").setEphemeral(true).queue();
+				return;
+			}
+
+			event.deferReply().complete(); // notify Discord
+			
+			// if the user is blacklisted, notify and abort
+			if(blacklist.contains(event.getUser().getId())) {
+				log(guild.getName(), "Blocked " + user.getName() + " from sending hearts (sender blacklisted).");
+				event.getHook().sendMessage(":poop: Her ne yaptÄ±ysan kara listedesin. Otur kÃ¶ÅŸende aÄŸla ÅŸimdi.").queue();
+				return;
+			}
+
+			User target = event.getOption("hedef").getAsUser(); // get the target
+			
+			// if the target is blacklisted, notify and abort
+			if(blacklist.contains(target.getId())) {
+				log(guild.getName(), "Blocked " + user.getName() + " from sending hearts to " + target.getName() + " (target blacklisted).");
+				event.getHook().sendMessage(":poop: Simplemek istediÄŸiniz **"  + target.getName() + "** kara listede. BÄ±rakÄ±n kÃ¶ÅŸesinde aÄŸlasÄ±n.").queue();
+				return;
+			}
+
+			int messageCount = count % 198 == 0 ? count / 198 : (count / 198) + 1; // calculate the message count
+			
+			// open the target's private channel and send the header message
+			PrivateChannel targetPM = target.openPrivateChannel().complete();
+			targetPM.sendMessage("**" + user.getName() + "** size " + count + " adet :heart: yolladÄ±!").queue();
+			
+			int ogCount = count; // backup the quantity
+			
+			// send messages
+			for(int i = 0, rem; i < messageCount; i++) {
+				String heart = "";
+
+				rem = count < 198 ? count : 198; // remaining emotes
+				
+				// add emotes to the message
+				for(int j = 0; j < rem; j++) {
+					heart += ":heart:";
+				}
+				
+				// send message and go to the next message
+				targetPM.sendMessage(heart).queue();
+				count -= 198;
+			}
+			
+			// acknowledge the user
+			log(guild.getName(), user.getName() + " -> " + target.getName() + " (" + ogCount + " hearts)");
+			event.getHook().sendMessage(":heart: **" + target.getName() + "** kiÅŸisi baÅŸarÄ±yla " + ogCount + " defa simplendi. Ä°yi avlamalar.").queue();
+			
+		// if the command is kapat
+		} else if (name.equals("kapat")) {
+			// if the command user is the bot owner, shutdown
+			if(user.getId().equals(OWNER_ID)) {
+				event.reply("KapattÄ±k kardeÅŸim.").queue();
+				event.getJDA().getShardManager().shutdown();
+				log("System", "Bot closed.");
+			// if the command user is not the bot owner, notify
+			} else {
+				event.reply("Beni sadece sahibim kapatabilir.").setEphemeral(true).queue();
+			}
+			
+		// if the command is karaliste
+		} else if (name.equals("karaliste")) {
+			// if the command user is the bot owner, update the blacklist
+			if(user.getId().equals(OWNER_ID)) {
+				event.deferReply().complete(); // notify Discord
+				
+				User target = event.getOption("hedef").getAsUser(); // get the target
+				
+				// if the user is successfully added to the blacklist file
+				if(blacklistAddRemove(target)) {
+					// acknowledge the user
+					if (blacklist.contains(target.getId())) {
+						event.getHook().sendMessage("**" + target.getName() + "** kara listeye eklendi.").queue();
+						log("System", "Added " + target.getName() + " (" + target.getId() + ") to the blacklist.");
+					} else {
+						event.getHook().sendMessage("**" + target.getName() + "** kara listeden Ã§Ä±karÄ±ldÄ±.").queue();
+						log("System", "Removed " + target.getName() + " (" + target.getId() + ") from the blacklist.");
+					}
+				// if it is not successful, notify
+				} else {
+					event.getHook().sendMessage("Kara listeyi gÃ¼ncelleme iÅŸlemi sÄ±rasÄ±nda bir hata oluÅŸtu. Daha sonra tekrar deneyebilir misin?").setEphemeral(true).queue();
+				}
+			// if the command user is not the bot owner, notify
+			} else {
+				event.reply("Beni sadece sahibim kapatabilir.").setEphemeral(true).queue();
+			}
+		}
+	}
+	
+	// when a message is received
 	@Override
 	public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
-		if(event.isFromType(ChannelType.PRIVATE)) return;
+		if (event.getAuthor().isBot()) return; // if it is from a bot, abort
 		
-		JDA jda = event.getJDA();
-		
-		User u = event.getAuthor();
-		Message message = event.getMessage();
-		MessageChannel channel = event.getChannel();
-		
-		String[] msgRaw = message.getContentDisplay().split(" ");
-		String[] msg = Arrays.stream(msgRaw)
-                .filter(value ->
-                        value != null && value.length() > 0
-                )
-                .toArray(size -> new String[size]);
-		
-		if(msg[0].toLowerCase().equals("-alev")) {
-			if(msg.length < 3 || message.getMentionedUsers().size() < 1) {
-				channel.sendMessage("Komut kullanýmý: -alev [sayý] [hedefler] " + u.getAsMention()).queue();
-				return;
-			}
-			
-			int count = 0;
-			
-			try {
-				count = Integer.parseInt(msg[1]);
-			} catch(NumberFormatException ex) {
-				channel.sendMessage("Komut kullanýmý: -alev [sayý] [hedefler] " + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(count <= 0) {
-				channel.sendMessage("Lütfen daha yüksek bir sayý gir. " + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(count > 792) {
-				channel.sendMessage("O kadar çok alev gönderemiyorum. Maksimum limit 792. " + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(blacklist.contains(u.getId())) {
-				String blockedFire = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] Blocked " + u.getName() + " from sending fires (blacklisted).\n";
-				
-				System.out.print(blockedFire);
-				try {
-					if(!log.exists())
-						log.createNewFile();
-					
-					logwriter = new FileWriter(log, true);
-					logwriter.append(blockedFire);
-					logwriter.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-				channel.sendMessage("Her ne yaptýysan kara listedesin. Otur köþende aðla þimdi. :poop: " + u.getAsMention()).queue();
-				return;
-			}
-			
-			String info = "**" + u.getName() + "** size " + count + " adet :fire: yolladý!";
-			
-			int messageCount;
-			if(count % 198 == 0)
-				messageCount = count / 198;
-			else
-				messageCount = (count / 198) + 1;
-			
-			List<User> targets = message.getMentionedUsers();
-			
-			for(User target : targets) {
-				if(!blacklist.contains(target.getId())) {
-					target.openPrivateChannel().complete().sendMessage(info).queue();
-					
-					int countTemp = count;
-					
-					for(int i = 0; i < messageCount; i++) {
-						String fire = "";
-						if(countTemp > 0 && countTemp <= 198) {
-							for(int j = 0; j < countTemp; j++) {
-								fire += ":fire:";
-							}
-						} else {
-							for(int j = 0; j < 198; j++) {
-								fire += ":fire:";
-							}
-						}
-						
-						target.openPrivateChannel().complete().sendMessage(fire).queue();
-						countTemp -= 198;
-					}
-	
-					String sentFire = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] " + u.getName() + " -> " + target.getName() + " (" + count + " fires)\n";
-					
-					System.out.print(sentFire);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-						
-						logwriter = new FileWriter(log, true);
-						logwriter.append(sentFire);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					
-					channel.sendMessage(":fire: **" + target.getName() + "** kiþisi baþarýyla " + count + " defa alevlendi. Ýyi avlamalar. " + u.getAsMention()).queue();
-				} else {
-					String blockedFire = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] " + u.getName() + " -/-> " + target.getName() + " (blacklisted) (" + count + " fires)\n";
-					
-					System.out.print(blockedFire);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-						
-						logwriter = new FileWriter(log, true);
-						logwriter.append(blockedFire);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					
-					channel.sendMessage(":poop: Alevlemek istediðiniz **"  + target.getName() + "** kara listede. Býrakýn köþesinde aðlasýn. " + u.getAsMention()).queue();
-				}
-			}
-		} else if(msg[0].toLowerCase().equals("-kalp")) {
-			if(msg.length < 3 || message.getMentionedUsers().size() < 1) {
-				channel.sendMessage("Komut kullanýmý: -kalp [sayý] [hedefler] " + u.getAsMention()).queue();
-				return;
-			}
-			
-			int count = 0;
-			
-			try {
-				count = Integer.parseInt(msg[1]);
-			} catch(NumberFormatException ex) {
-				channel.sendMessage("Komut kullanýmý: -kalp [sayý] [hedefler] " + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(count <= 0) {
-				channel.sendMessage("Lütfen daha yüksek bir sayý gir." + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(count > 792) {
-				channel.sendMessage("O kadar çok kalp gönderemiyorum. Maksimum limit 792. " + u.getAsMention()).queue();
-				return;
-			}
-			
-			if(blacklist.contains(u.getId())) {
-				String blockedHeart = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] Blocked " + u.getName() + " from sending hearts (blacklisted).\n";
-				
-				System.out.print(blockedHeart);
-				try {
-					if(!log.exists())
-						log.createNewFile();
-					
-					logwriter = new FileWriter(log, true);
-					logwriter.append(blockedHeart);
-					logwriter.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-				channel.sendMessage("Her ne yaptýysan kara listedesin. Otur köþende aðla þimdi. :poop: " + u.getAsMention()).queue();
-				return;
-			}
-			
-			String info = "**" + u.getName() + "** size " + count + " adet :heart: yolladý!";
-			
-			int messageCount;
-			if(count % 198 == 0)
-				messageCount = count / 198;
-			else
-				messageCount = (count / 198) + 1;
-			
-			List<User> targets = message.getMentionedUsers();
-			
-			for(User target : targets) {
-				if(!blacklist.contains(target.getId())) {
-					target.openPrivateChannel().complete().sendMessage(info).queue();
-					
-					int countTemp = count;
-					
-					for(int i = 0; i < messageCount; i++) {
-						String heart = "";
-						if(countTemp > 0 && countTemp <= 198) {
-							for(int j = 0; j < countTemp; j++) {
-								heart += ":heart:";
-							}
-						} else {
-							for(int j = 0; j < 198; j++) {
-								heart += ":heart:";
-							}
-						}
-						
-						target.openPrivateChannel().complete().sendMessage(heart).queue();
-						countTemp -= 198;
-					}
-	
-					String sentHeart = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] " + u.getName() + " -> " + target.getName() + " (" + count + " hearts)\n";
-					
-					System.out.print(sentHeart);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-						
-						logwriter = new FileWriter(log, true);
-						logwriter.append(sentHeart);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					
-					channel.sendMessage(":heart: **" + target.getName() + "** kiþisi baþarýyla " + count + " defa simplendi. Ýyi avlamalar. " + u.getAsMention()).queue();
-				} else {
-					String blockedHeart = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "][" + event.getGuild().getName() + "] " + u.getName() + " -/-> " + target.getName() + " (blacklisted) (" + count + " hearts)\n";
-					
-					System.out.print(blockedHeart);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-						
-						logwriter = new FileWriter(log, true);
-						logwriter.append(blockedHeart);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					
-					channel.sendMessage(":poop: Simplemek istediðiniz **"  + target.getName() + "** kara listede. Býrakýn köþesinde aðlasýn. " + u.getAsMention()).queue();
-				}
-			}
-		} else if(msg[0].toLowerCase().equals("-kapat") && u.getId().equals("257210596896931840")) {
-			channel.sendMessage("Kapattýk kardeþim").complete();
-			
-			String closed = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "]" + " Bot closed.\n";
-			System.out.print(closed);
-			try {
-				if(!log.exists())
-					log.createNewFile();
-				
-				logwriter = new FileWriter(log, true);
-				logwriter.append(closed);
-				logwriter.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			jda.shutdownNow();
-			OkHttpClient client = jda.getHttpClient();
-			client.connectionPool().evictAll();
-			client.dispatcher().executorService().shutdown();
-		} else if(msg[0].toLowerCase().equals("-karaliste") && u.getId().equals("257210596896931840")) {
-			if(message.getMentionedUsers().size() == 0) {
-				channel.sendMessage("Komut kullanýmý: -karaliste [hedefler]").queue();
-				return;
-			}
-			
-			List<User> tagged = message.getMentionedUsers();
-			for(User t : tagged) {
-				if(!blacklist.contains(t.getId())) {
-					blacklist.add(t.getId());
-						
-					channel.sendMessage("**" + t.getName() + "** kara listeye eklendi!").queue();
-					
-					String added = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "] " + "Added " + t.getName() + " to blacklist.\n";
-					System.out.print(added);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-						
-						logwriter = new FileWriter(log, true);
-						logwriter.append(added);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				} else {
-					blacklist.remove(t.getId());
-						
-					channel.sendMessage("**" + t.getName() + "** kara listeden çýkarýldý!").queue();
-						
-					String removed = "[" + dtf.format(ZonedDateTime.now(ZoneId.of("GMT+3"))) + "] " + "Removed " + t.getName() + " from blacklist.\n";
-					System.out.print(removed);
-					try {
-						if(!log.exists())
-							log.createNewFile();
-							
-						logwriter = new FileWriter(log, true);
-						logwriter.append(removed);
-						logwriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			}
-			
-			try {
-				updateBlacklist();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+		// if it is from the private channel, reply
+		if(event.isFromType(ChannelType.PRIVATE)) {
+			event.getChannel().sendMessage("SavcÄ±lÄ±ÄŸa verildiniz.").queue();
 		}
 	}
 }

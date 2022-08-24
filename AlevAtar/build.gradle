@@ -1,7 +1,18 @@
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "gradle.plugin.com.github.jengelman.gradle.plugins:shadow:7.0.0"
+    }
+} 
+
 plugins {
     id 'java'
     id 'application'
-    id 'com.github.johnrengelman.shadow' version '4.0.4'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
 }
 
 mainClassName = 'dev.mrpanda.AlevAtar.Bot'
@@ -11,20 +22,6 @@ version '1.0'
 sourceCompatibility = 1.8
 
 jar {
-
-    archiveName = "AlevAtar.jar"
-
-    from {
-
-        configurations.runtime.findAll { !it.name.endsWith('pom') }.collect {
-        	it.isDirectory() ? it : zipTree(it)
-        }
-
-        configurations.compile.findAll { !it.name.endsWith('pom') }.collect {
-            it.isDirectory() ? it : zipTree(it)
-        }
-    }
-
     manifest {
         attributes 'Main-Class': 'dev.mrpanda.AlevAtar.Bot'
     }
@@ -33,13 +30,9 @@ jar {
 }
 
 repositories {
-    jcenter()
+    mavenCentral()
 }
-
 dependencies {
-    compile 'com.jagrosh:jda-utilities:3.0.5'
-    compile 'net.dv8tion:JDA:4.2.0_215'
-    compile 'org.slf4j:slf4j-nop:1.7.30'
+    implementation("net.dv8tion:JDA:5.0.0-alpha.17")
+    implementation("org.slf4j:slf4j-nop:2.0.0-beta1")
 }
-
-compileJava.options.encoding = 'CP1254'
