@@ -230,6 +230,9 @@ public class Bot extends ListenerAdapter {
 			} else if (count <= 0) {
 				event.reply("Lütfen daha yüksek bir sayı gir.").setEphemeral(true).queue();
 				return;
+			} else if (event.getOption("hedef").getAsUser().isBot()) {
+				event.reply("Bota alev atsan ne olacak? Anlamaz ki...").setEphemeral(true).queue();
+				return;
 			}
 
 			event.deferReply().complete(); // notify Discord
@@ -288,6 +291,9 @@ public class Bot extends ListenerAdapter {
 				return;
 			} else if (count <= 0) {
 				event.reply("Lütfen daha yüksek bir sayı gir.").setEphemeral(true).queue();
+				return;
+			} else if (event.getOption("hedef").getAsUser().isBot()) {
+				event.reply("Bota kalp atsan ne olacak? Anlamaz ki...").setEphemeral(true).queue();
 				return;
 			}
 
