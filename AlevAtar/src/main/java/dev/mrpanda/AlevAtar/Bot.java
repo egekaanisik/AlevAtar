@@ -34,9 +34,9 @@ public class Bot extends ListenerAdapter {
 
 	public static String DISCORD_TOKEN = "<insert_discord_bot_token>"; // Discord bot token
 	public static String OWNER_ID = "<insert_your_discord_id>"; // ID of the bot owner
-
-	public static File log = new File(Paths.get("").toAbsolutePath().toString() + "\\log.txt"); // log file
-	public static File blist = new File(Paths.get("").toAbsolutePath().toString() + "\\blacklist.txt"); // blacklist file
+	
+	public static File log = new File(Paths.get(Paths.get("").toAbsolutePath().toString(), "log.txt").toString()); // log file
+	public static File blist = new File(Paths.get(Paths.get("").toAbsolutePath().toString(), "blacklist.txt").toString()); // blacklist file
 	public static FileWriter logwriter, blistwriter; // file writers
 	public static DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyy HH:mm:ss"); // log date time format
 	public static List<String> blacklist = new ArrayList<String>(); // blacklist itself
