@@ -4,15 +4,18 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 import javax.annotation.Nonnull;
-import javax.security.auth.login.LoginException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.ChannelType;
 import net.dv8tion.jda.api.entities.Guild;
@@ -28,12 +31,10 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder;
-import net.dv8tion.jda.api.sharding.ShardManager;
 
 public class Bot extends ListenerAdapter {
 
-	public static String DISCORD_TOKEN = "<insert_discord_bot_token>"; // Discord bot token
-	public static String OWNER_ID = "<insert_your_discord_id>"; // ID of the bot owner
+	public static HashMap<String, String> config; // bot configuration
 	
 	public static File log = new File(Paths.get(Paths.get("").toAbsolutePath().toString(), "log.txt").toString()); // log file
 	public static File blist = new File(Paths.get(Paths.get("").toAbsolutePath().toString(), "blacklist.txt").toString()); // blacklist file
@@ -42,13 +43,23 @@ public class Bot extends ListenerAdapter {
 	public static List<String> blacklist = new ArrayList<String>(); // blacklist itself
 	public static Scanner blistscan; // blacklist scanner
 
-	public static void main(String[] args) throws LoginException, IllegalArgumentException {
-		// create shard manager
-		@SuppressWarnings("unused")
-		ShardManager jda = DefaultShardManagerBuilder.createDefault(DISCORD_TOKEN)
-		.addEventListeners(new Bot())
-		.setActivity(Activity.playing("/alev | /kalp"))
-		.setAutoReconnect(true).build();
+	public static void main(String[] args) {
+		try {
+			config = getConfig();
+	
+			log("System", "Starting bot...");
+			
+			// shard manager configuration
+			DefaultShardManagerBuilder builder = DefaultShardManagerBuilder.createDefault(config.get("token"))
+			.addEventListeners(new Bot())
+			.setActivity(Activity.playing("/alev | /kalp"))
+			.setAutoReconnect(true);
+			
+			builder.build(); // build shard manager
+		} catch (Exception ex) {
+			log("System", "Exception occured: " + ex.getMessage());
+			System.exit(1);
+		}
 	}
 
 	// when the bot is ready and set, notify and get blacklist
@@ -346,7 +357,7 @@ public class Bot extends ListenerAdapter {
 		// if the command is kapat
 		} else if (name.equals("kapat")) {
 			// if the command user is the bot owner, shutdown
-			if(user.getId().equals(OWNER_ID)) {
+			if(user.getId().equals(config.get("owner_id"))) {
 				event.reply("Kapattık kardeşim.").queue();
 				event.getJDA().getShardManager().shutdown();
 				log("System", "Bot closed.");
@@ -358,7 +369,7 @@ public class Bot extends ListenerAdapter {
 		// if the command is karaliste
 		} else if (name.equals("karaliste")) {
 			// if the command user is the bot owner, update the blacklist
-			if(user.getId().equals(OWNER_ID)) {
+			if(user.getId().equals(config.get("owner_id"))) {
 				event.deferReply().complete(); // notify Discord
 				
 				User target = event.getOption("hedef").getAsUser(); // get the target
@@ -393,5 +404,61 @@ public class Bot extends ListenerAdapter {
 		if(event.isFromType(ChannelType.PRIVATE)) {
 			event.getChannel().sendMessage("Savcılığa verildiniz.").queue();
 		}
+	}
+
+	/**
+	 * Get the configuration map.
+	 * @return config
+	 * @throws IOException
+	 */
+	public static HashMap<String, String> getConfig() throws IOException {
+		
+		File configFile = new File(Paths.get(Paths.get("").toAbsolutePath().toString(), "config.json").toString()); // config file
+
+		// create the config map
+		HashMap<String, String> config = new HashMap<>();
+		config.put("token", "");
+		config.put("owner_id", "");
+		
+		ObjectMapper mapper = new ObjectMapper(); // json mapper
+		
+		// if the file does not exists
+		if (!configFile.exists()) {
+			log("System", "Cannot find config file.");
+			log("System", "Creating a new one...");
+			
+			// create a new file and write empty json
+			configFile.createNewFile();
+			FileWriter fw = new FileWriter(configFile);
+			fw.write(mapper.writeValueAsString(config));
+			fw.close();
+			
+			log("System", "Created!");
+			log("System", "Please enter your credentials into it and run the script again.");
+			System.exit(1); // terminate
+		}
+		
+		// read json and map the keys
+		String json = Files.readString(Paths.get(configFile.getAbsolutePath()));
+		HashMap<String, String> map = mapper.readValue(json, new TypeReference<HashMap<String, String>>() {});
+		
+		// if the required keys does not exist
+		if (!map.keySet().contains("token") || !map.keySet().contains("owner_id")) {
+			log("System", "Cannot find required fields in the config.");
+			
+			// reset the file
+			FileWriter fw = new FileWriter(configFile);
+			fw.write(mapper.writeValueAsString(config));
+			fw.close();
+
+			log("System", "Please enter your credentials into it and run the script again.");
+			System.exit(1); // terminate
+		}
+		
+		// set the necessary keys to the config map
+		config.replace("token", map.get("token"));
+		config.replace("owner_id", map.get("owner_id"));
+		
+		return config; // return map
 	}
 }
